@@ -4,8 +4,9 @@ use std::str;
 use std::string::String;
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::thread;
+use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum KeyMotion {
     Press,
     Release,
@@ -14,7 +15,9 @@ pub enum KeyMotion {
 #[derive(Debug)]
 pub struct KeyEvent {
     pub motion: KeyMotion,
+    // Whether the key was already in this state.
     pub code: i32,
+    pub already: bool,
 }
 
 pub struct Keyboard {
@@ -37,50 +40,29 @@ impl Keyboard {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn() {
-            println!("spawned");
             let tx2 = self.tx.clone();
             thread::spawn(move || {
+                // Map from key code to its last state.
+                let mut state: HashMap<i32, KeyMotion> = HashMap::new();
+
                 let mut stdout = BufReader::new(c.stdout.take().unwrap());
-                // let mut buffer = String::new();
-                // while buffered_stderr.read_line(&mut buffer).unwrap() > 0 {
-                //     buffer.trim()
-                //     buffer.clear();
-                // }
                 for line in stdout.lines() {
-                    // println!("{}", line.unwrap());
-                    let ke = parse_key_line(&line.unwrap()).unwrap();
+                    let mut ke = parse_key_line(&line.unwrap()).unwrap();
+
+                    let argh = KeyMotion::Release;
+                    let prev = state.get(&ke.code.clone()).or(Some(&argh)).unwrap().clone();
+
+                    if ke.motion == prev {
+                        ke.already = true;
+                    }
+
+                    state.insert(ke.code.clone(), ke.motion.clone());
                     tx2.send(ke).expect("send should send");
                 }
             });
         } else {
             println!("Could not spawn command");
         }
-    }
-}
-
-pub fn main() {
-    let cmdstr = "xinput list | grep -Po 'id=\\K\\d+(?=.*slave\\s*keyboard)' | xargs -P0 -n1 \
-                  xinput test";
-    if let Ok(mut c) = Command::new("bash")
-        .arg("-c")
-        .arg(cmdstr)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn() {
-        println!("spawned");
-        let mut stdout = BufReader::new(c.stdout.take().unwrap());
-        // let mut buffer = String::new();
-        // while buffered_stderr.read_line(&mut buffer).unwrap() > 0 {
-        //     buffer.trim()
-        //     buffer.clear();
-        // }
-        for line in stdout.lines() {
-            // println!("{}", line.unwrap());
-            let ke = parse_key_line(&line.unwrap()).unwrap();
-            println!("{:?}", ke);
-        }
-    } else {
-        println!("Could not spawn command");
     }
 }
 
@@ -105,5 +87,6 @@ fn parse_key_line(line: &str) -> Result<KeyEvent, String> {
     Ok(KeyEvent {
         motion: motion,
         code: code,
+        already: false,
     })
 }

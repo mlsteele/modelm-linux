@@ -9,7 +9,7 @@ use std::thread;
 use rand::Rng;
 use rand::distributions::{Range, IndependentSample};
 use ears::{Sound, AudioController};
-use keys::KeyMotion;
+use keys::{KeyEvent, KeyMotion};
 
 fn main() {
     match progn() {
@@ -34,7 +34,7 @@ fn progn() -> Result<(), Box<std::error::Error>> {
     loop {
         let ke = keyboard.rx.recv().unwrap();
         println!("{:?}", ke);
-        if let KeyMotion::Press = ke.motion {
+        if let KeyEvent { motion: KeyMotion::Press, already: false, code: _ } = ke {
             let range = Range::new(0, sounds.len());
             let i = range.ind_sample(&mut rand::thread_rng());
             let s = &mut sounds[i];
