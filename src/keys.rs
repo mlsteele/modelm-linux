@@ -1,4 +1,6 @@
+use std::process;
 use std::process::{Command, Stdio};
+use std::io;
 use std::io::{BufReader, BufRead};
 use std::str;
 use std::string::String;
@@ -31,43 +33,56 @@ impl Keyboard {
         Keyboard { tx: tx, rx: rx }
     }
 
-    pub fn start(&self) {
+    pub fn start(&self) -> Result<(), io::Error> {
         let cmdstr = "xinput list | grep -Po 'id=\\K\\d+(?=.*slave.*)' | xargs -P0 -n1 \
                       xinput test";
-        if let Ok(mut c) = Command::new("bash")
+        let mut c = try!(Command::new("bash")
             .arg("-c")
             .arg(cmdstr)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn() {
-            let tx2 = self.tx.clone();
-            thread::spawn(move || {
-                // Map from key code to its last state.
-                let mut state: HashMap<i32, KeyMotion> = HashMap::new();
+            .spawn());
+        let tx2 = self.tx.clone();
+        let stdouterr = io::Error::new(io::ErrorKind::Other, "Could not get process stdout");
+        let stdout: process::ChildStdout = try!(c.stdout.ok_or(stdouterr));
+        let mut stdout = BufReader::new(stdout);
+        thread::spawn(move || {
+            // Map from key code to its last state.
+            let mut state: HashMap<i32, KeyMotion> = HashMap::new();
 
-                let mut stdout = BufReader::new(c.stdout.take().unwrap());
-                for line in stdout.lines() {
-                    let mut ke = parse_key_line(&line.unwrap()).unwrap();
-
-                    let argh = KeyMotion::Release;
-                    let prev = state.get(&ke.code.clone()).or(Some(&argh)).unwrap().clone();
-
-                    if ke.motion == prev {
-                        ke.already = true;
+            for line in stdout.lines() {
+                if let Ok(line) = line {
+                    if let Err(err) = Keyboard::loop_inner(&line, &mut state, &tx2) {
+                        warn!("{}", err);
                     }
-
-                    state.insert(ke.code.clone(), ke.motion.clone());
-                    tx2.send(ke).expect("send should send");
                 }
-            });
-        } else {
-            println!("Could not spawn command");
+            }
+        });
+        Ok(())
+    }
+
+    fn loop_inner(line: &str,
+                  state: &mut HashMap<i32, KeyMotion>,
+                  tx2: &SyncSender<KeyEvent>)
+                  -> Result<(), io::Error> {
+        let mut ke = try!(parse_key_line(&line));
+
+        let argh = KeyMotion::Release;
+        let prev = state.get(&ke.code.clone()).or(Some(&argh)).unwrap().clone();
+
+        if ke.motion == prev {
+            ke.already = true;
         }
+
+        state.insert(ke.code.clone(), ke.motion.clone());
+        tx2.send(ke).expect("send should send");
+        Ok(())
     }
 }
 
-fn parse_key_line(line: &str) -> Result<KeyEvent, String> {
-    let e = Err(format!("malformed key event: {}", line));
+fn parse_key_line(line: &str) -> Result<KeyEvent, io::Error> {
+    let e = Err(io::Error::new(io::ErrorKind::Other,
+                               format!("malformed key event: {}", line)));
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() != 3 {
         return e;

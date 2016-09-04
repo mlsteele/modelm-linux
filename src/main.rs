@@ -1,5 +1,7 @@
 extern crate ears;
 extern crate rand;
+#[macro_use]
+extern crate log;
 
 mod sound;
 mod keys;
@@ -32,7 +34,7 @@ fn progn() -> Result<(), Box<std::error::Error>> {
     keyboard.start();
 
     loop {
-        let ke = keyboard.rx.recv().unwrap();
+        let ke = try!(keyboard.rx.recv());
         println!("{:?}", ke);
         if let KeyEvent { motion: KeyMotion::Press, already: false, code: _ } = ke {
             let range = Range::new(0, sounds.len());
