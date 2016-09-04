@@ -1,8 +1,7 @@
-use std::vec;
 use std::fs;
 use std::io;
 
-use ears::{Sound, AudioController};
+use ears::Sound;
 
 pub fn load_dir(path: &str) -> Result<Vec<Sound>, io::Error> {
     let mut v: Vec<Sound> = Vec::new();
@@ -22,16 +21,4 @@ pub fn load_dir(path: &str) -> Result<Vec<Sound>, io::Error> {
         }
     }
     return Ok(v);
-}
-
-pub fn main() {
-    let path = "/home/miles/code/modelm-linux/resources/modelm/1_.wav";
-    println!("Loading: {}", path);
-    if let Some(mut s) = Sound::new(path) {
-        println!("Loaded sound");
-        s.play();
-        while s.is_playing() {}
-    } else {
-        println!("Could not load sound");
-    }
 }

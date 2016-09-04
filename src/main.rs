@@ -7,10 +7,8 @@ mod sound;
 mod keys;
 
 use std::io;
-use std::thread;
-use rand::Rng;
 use rand::distributions::{Range, IndependentSample};
-use ears::{Sound, AudioController};
+use ears::AudioController;
 use keys::{KeyEvent, KeyMotion};
 
 fn main() {
@@ -23,7 +21,7 @@ fn main() {
 fn progn() -> Result<(), Box<std::error::Error>> {
     ears::init();
 
-    println!("Hello, world!");
+    println!("Listening for key events");
 
     let mut sounds = try!(sound::load_dir("resources/modelm"));
     if sounds.len() < 1 {
@@ -31,7 +29,7 @@ fn progn() -> Result<(), Box<std::error::Error>> {
     }
 
     let keyboard = keys::Keyboard::new();
-    keyboard.start();
+    try!(keyboard.start());
 
     loop {
         let ke = try!(keyboard.rx.recv());

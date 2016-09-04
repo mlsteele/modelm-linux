@@ -3,7 +3,6 @@ use std::process::{Command, Stdio};
 use std::io;
 use std::io::{BufReader, BufRead};
 use std::str;
-use std::string::String;
 use std::sync::mpsc::{sync_channel, SyncSender, Receiver};
 use std::thread;
 use std::collections::HashMap;
@@ -36,7 +35,7 @@ impl Keyboard {
     pub fn start(&self) -> Result<(), io::Error> {
         let cmdstr = "xinput list | grep -Po 'id=\\K\\d+(?=.*slave.*)' | xargs -P0 -n1 \
                       xinput test";
-        let mut c = try!(Command::new("bash")
+        let c = try!(Command::new("bash")
             .arg("-c")
             .arg(cmdstr)
             .stdout(Stdio::piped())
@@ -45,7 +44,7 @@ impl Keyboard {
         let tx2 = self.tx.clone();
         let stdouterr = io::Error::new(io::ErrorKind::Other, "Could not get process stdout");
         let stdout: process::ChildStdout = try!(c.stdout.ok_or(stdouterr));
-        let mut stdout = BufReader::new(stdout);
+        let stdout = BufReader::new(stdout);
         thread::spawn(move || {
             // Map from key code to its last state.
             let mut state: HashMap<i32, KeyMotion> = HashMap::new();
