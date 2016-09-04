@@ -32,7 +32,7 @@ impl Keyboard {
     }
 
     pub fn start(&self) {
-        let cmdstr = "xinput list | grep -Po 'id=\\K\\d+(?=.*slave\\s*keyboard)' | xargs -P0 -n1 \
+        let cmdstr = "xinput list | grep -Po 'id=\\K\\d+(?=.*slave.*)' | xargs -P0 -n1 \
                       xinput test";
         if let Ok(mut c) = Command::new("bash")
             .arg("-c")
